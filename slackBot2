@@ -1,0 +1,151 @@
+import requests
+import websocket
+import json
+import random
+import datetime, time
+
+msgs = None
+message_text = ""
+
+
+with open('busInfo.json', 'r', encoding='UTF8') as fr:
+	msgs = json.loads(fr.read())
+	
+def on_message(ws, message):
+	message = json.loads(message)
+	print(message)
+	if 'type' in message.keys() and message['type'] != 'message':
+                # 입력받은 메세지가 텍스트가 아닐 경우
+		return # 여기서 다룰 필요가 없으므로 그냥 끝내기
+	message_text = message['text']
+
+	if not message_text in msgs['kwds']:
+		return
+	
+	weekday = get_key_by_weekday(msgs['info']['semester'])
+	if message_text == '셔틀콕':
+		return_msg = {
+			'channel' : message['channel'],
+			'type': 'message',
+			'text': msgs['notice']
+		}
+	
+	elif message_text == '셔틀콕 시간표':
+		locations = get_bus_schedule(weekday)
+		return_msg = show_current_bus_schedule(message, locations)
+	elif message_text == '알람 설정':
+                #알람 설정할 시간 입력받기
+                input_time = datetime.datetime.now()
+                #alarm_time = input_time + datetime.timedelta(minutes=1)
+                return_msg = set_alarm(message, input_time)
+                ws.send(json.dumps(return_msg)) # 알람 설정 메시지 보내기
+                return_msg = alarm_clock(message, alarm_time) # 알람 시계 메시지
+                   
+	else:
+		location = get_key_by_location(message_text,weekday)
+		current_bus_time = get_bus_and_time(location)
+		return_msg = show_current_bus_time(message, current_bus_time)
+
+	ws.send(json.dumps(return_msg)) # 서버에 메세지를 전송 
+
+
+def get_key_by_weekday(term):
+	weekday = datetime.date.today().weekday()
+	if weekday == '5':
+		return term['weekends']['sat']
+	elif weekday == '6':
+		return term['weekends']['sun']
+	else:
+		return term['weekday']
+
+def get_key_by_location(message_text, weekday):
+	if message_text == '셔틀콕 예술인':
+		return weekday['예술인']
+	elif message_text == '셔틀콕 셔틀콕':
+		return weekday['셔틀콕']
+	elif message_text == '셔틀콕 한대앞':
+		return weekday['한대앞']
+	else:
+		return weekday['창의원']
+
+def get_bus_and_time(buses):
+	now = datetime.datetime.now().strftime("%H:%M")
+	# now = '13:09'#test
+	plus = ''
+	result = ''
+	for bus in buses:
+		for time in buses[bus]:
+			if now <= time:
+				plus = bus + '\n' + time
+				break
+		result = result + '\n' + plus
+	print(result)
+	return result
+
+def show_current_bus_time(message, current_bus_time):
+	return_msg = {
+			'channel' : message['channel'],
+			'type': 'message',
+			'text': '<버스 시간>' + current_bus_time
+		}
+	return return_msg
+
+def get_bus_schedule(locations):
+	now = datetime.datetime.now().strftime("%H:%M")
+	# now = '13:09'#test
+	plus = ''
+	result = ''
+	for location in locations:
+		result = result + '*' + location + '*' + '\n' 
+		buses = locations[location]
+		for bus in buses:
+			result = result + bus + '\n'
+			for time in buses[bus]:
+				result = result + time + ' '
+			result = result + '\n'
+	return result	
+
+def show_current_bus_schedule(message,get_bus_schedule):
+	return_msg = {
+			'channel' : message['channel'],
+			'type': 'message',
+			'text': '<버스 시간>\n' + get_bus_schedule
+		}
+	return return_msg
+
+def set_alarm(message, alarm_time):
+        #알람 설정 완료 메시지
+        alarm_text = alarm_time.strftime('%H:%M') + ' 셔틀 알람이 설정되었습니다'
+        return_msg = {
+		'channel' : message['channel'],
+		'type': 'message',
+                'text': alarm_text
+	}
+        return return_msg
+
+def alarm_clock(message, alarm_time):
+        #알람 시계 돌아간다
+        while True:
+                time.sleep(1)
+                now = datetime.datetime.now()
+                if (alarm_time.hour == now.hour) & (alarm_time.minute == now.minute) :
+                        return_msg = {
+                                'channel' : message['channel'],
+                                'type': 'message',
+                                'text': '알람 시간!'
+                	}
+                        return return_msg
+                        
+
+
+token = 'xoxb-315207345287-jGDwnc1oHsBb0AQiyKKhJ5T2'
+get_url = requests.get('https://slack.com/api/rtm.connect?token=' + token)
+print(get_url.json()['url'])
+socket_endpoint = get_url.json()['url']
+print('Connecting to', socket_endpoint)
+
+websocket.enableTrace(True)
+ws = websocket.WebSocketApp(socket_endpoint, on_message=on_message)
+ws.run_forever()
+
+#chang-uiwon circulating-bus shuttlecock handaeap-bus yesul-in-bus
