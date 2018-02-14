@@ -135,12 +135,11 @@ def get_bus_and_time(buses):
 				plus = bus + '\n' + time
 				break
 		result = result + '\n' + plus
-	print(result)
 	return result
 #slack에 보낼 제일 빨리 오는 버스 시간 값 return
-def show_current_bus_time(message, current_bus_time):
+def show_current_bus_time(current_bus_time):
 	return_msg = {
-			'channel' : message['channel'],
+			'channel' : _message['channel'],
 			'type': 'message',
 			'text': '<버스 시간>' + current_bus_time
 		}
