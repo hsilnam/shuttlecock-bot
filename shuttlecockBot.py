@@ -2,38 +2,105 @@ import requests
 import websocket
 import json
 import random
-import datetime, time
+import datetime
+from apscheduler.schedulers.background import BackgroundScheduler
+import time
+import os
 
 msgs = None
-message_text = ""
+save_log = ''
+busalarmtimedict = None
+real_alarm_time_now = False
+_message=None
+_ws=None
+_channel=''
 
 with open('busInfo.json', 'r') as fr:
 	msgs = json.loads(fr.read())
 def on_message(ws, message):
-	message = json.loads(message)
-	print(message)
-	if 'type' in message.keys() and message['type'] != 'message':
+	global save_log
+	global busalarmtimedict
+	global _message
+	global _ws
+	global _channel
+
+	_ws = ws
+	_message = json.loads(message)
+	if 'type' in _message.keys() and _message['type'] != 'message':
 		return
-	message_text = message['text']
-	if not message_text in msgs['kwds']:
+	message_text = _message['text']
+	if not (message_text in msgs['shuttlekwds'] or message_text in msgs['alarmkwds']):
 		return
 	weekday = get_key_by_weekday(msgs['info']['semester'])
-	if message_text == '셔틀콕':
-		return_msg = {
-			'channel' : message['channel'],
-			'type': 'message',
-			'text': msgs['notice']
-		}
-	
-	elif message_text == '셔틀콕 시간표':
-		locations = get_bus_schedule(weekday)
-		return_msg = show_bus_schedule(message, locations)
+	if message_text in msgs['shuttlekwds']:
+		if message_text == '셔틀콕' or message_text == '셔틀콕?':
+			return_msg = {
+				'channel' : _message['channel'],
+				'type': 'message',
+				'text': msgs['shuttlenotice']
+			}
+		
+		elif message_text == '셔틀콕 시간표':
+			locations = get_bus_schedule(weekday)
+			return_msg = show_bus_schedule(locations)
+		else:
+			location = get_key_by_location(message_text,weekday)
+			current_bus_time = get_bus_and_time(location)
+			save_log = message_text
+			return_msg = show_current_bus_time(current_bus_time)
 	else:
-		location = get_key_by_location(message_text,weekday)
-		current_bus_time = get_bus_and_time(location)
-		return_msg = show_current_bus_time(message, current_bus_time)
+		if message_text == '알람?':
+			return_msg = {
+				'channel' : _message['channel'],
+				'type': 'message',
+				'text': msgs['alarmnotice']
+			}
+		else:			
+			if save_log == '':
+				return_msg = {
+					'channel' : _message['channel'],
+					'type': 'message',
+					'text': msgs['alarmwarning']
+				}
+			else:
+				#전 busalarmtimedic
+				busalarmtimedictbefore = busalarmtimedict
+				busalarmtimedict = get_bus_alarm_time_dict(save_log, message_text, weekday)
 
-	ws.send(json.dumps(return_msg))
+				if(difference_from_now_and_alarm_time() == None):
+					return_msg = {
+					'channel' : _message['channel'],
+					'type': 'message',
+					'text': '알람완료'
+					}
+					_channel=_message['channel']
+					_ws.send(json.dumps(return_msg))
+					return
+
+				time_difference=int(difference_from_now_and_alarm_time())
+				time_remaining= 5 - time_difference
+				if (0< time_difference & time_difference <= 5):
+					return_msg = {
+					'channel' : _message['channel'],
+					'type': 'message',
+					'text': busalarmtimedict['bus']+'가 '+str(time_remaining)+'분 밖에 안남았습니다'
+					}
+					busalarmtimedict = busalarmtimedictbefore
+					_ws.send(json.dumps(return_msg))
+					return
+				else:
+					return_msg = {
+					'channel' : _message['channel'],
+					'type': 'message',
+					'text': '알람완료'
+					}
+					_channel=_message['channel']
+					_ws.send(json.dumps(return_msg))
+					return
+
+				
+
+	_ws.send(json.dumps(return_msg))
 
 #평일,토,일에 따른 value return
 def get_key_by_weekday(term):
