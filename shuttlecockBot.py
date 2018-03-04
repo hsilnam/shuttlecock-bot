@@ -15,7 +15,7 @@ _message=None
 _ws=None
 _channel=''
 
-with open('busInfo.json', 'r') as fr:
+with open('busInfo.json', 'r', encoding='utf-8') as fr:
 	msgs = json.loads(fr.read())
 def on_message(ws, message):
 	global save_log
@@ -26,12 +26,15 @@ def on_message(ws, message):
 
 	_ws = ws
 	_message = json.loads(message)
+	#입력한 값의 key에 type이 있는지, 그 타입이 message type이 message인지 안전코딩
 	if 'type' in _message.keys() and _message['type'] != 'message':
 		return
 	message_text = _message['text']
+	#입력된 값이 키워드에 있는지 안전코딩
 	if not (message_text in msgs['shuttlekwds'] or message_text in msgs['alarmkwds']):
 		return
 	weekday = get_key_by_weekday(msgs['info']['semester'])
+	#shuttlekwds에 있는 키워드
 	if message_text in msgs['shuttlekwds']:
 		if message_text == '셔틀콕' or message_text == '셔틀콕?':
 			return_msg = {
@@ -105,9 +108,9 @@ def on_message(ws, message):
 #평일,토,일에 따른 value return
 def get_key_by_weekday(term):
 	weekday = datetime.date.today().weekday()
-	if weekday == '5':
+	if weekday == 5:
 		return term['weekends']['sat']
-	elif weekday == '6':
+	elif weekday == 6:
 		return term['weekends']['sun']
 	else:
 		return term['weekday']
@@ -276,7 +279,6 @@ sched.add_job(my_interval_job, 'interval', seconds=3)
 sched.start()
 
 
-# token = 'xoxb-313489507538-M1E47AiXS0DjLEEXQUcIFnOG'
 token = os.environ.get('SLACK_BOT_TOKEN')
 get_url = requests.get('https://slack.com/api/rtm.connect?token=' + token)
 print(get_url.json()['url'])
