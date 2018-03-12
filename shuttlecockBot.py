@@ -279,12 +279,3 @@ sched.add_job(my_interval_job, 'interval', seconds=3)
 sched.start()
 
 
-token = os.environ.get('SLACK_BOT_TOKEN')
-get_url = requests.get('https://slack.com/api/rtm.connect?token=' + token)
-print(get_url.json()['url'])
-socket_endpoint = get_url.json()['url']
-print('Connecting to', socket_endpoint)
-
-websocket.enableTrace(True)
-_ws = websocket.WebSocketApp(socket_endpoint, on_message=on_message)
-_ws.run_forever()
