@@ -15,7 +15,7 @@ _message=None
 _ws=None
 _channel=''
 
-with open('busInfo.json', 'r', encoding='utf-8') as fr:
+with open('ShuttleCokeBot/busInfo.json', 'r', encoding='utf-8') as fr:
 	msgs = json.loads(fr.read())
 def on_message(ws, message):
 	global save_log
