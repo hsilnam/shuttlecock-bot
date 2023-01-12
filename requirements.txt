@@ -50,7 +50,7 @@ selenium==3.4.3
 simplegeneric==0.8.1
 six==1.10.0
 sklearn==0.0
-tensorflow==0.12.1
+tensorflow==1.15.2
 terminado==0.6
 testpath==0.3
 tornado==4.4.2
